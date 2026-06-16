@@ -1,0 +1,20 @@
+{
+  "name": "@carlos-eduardo/claude-skills",
+  "version": "1.0.0",
+  "description": "Interactive CLI to install Claude Code skills in your projects",
+  "type": "module",
+  "bin": {
+    "claude-skills": "./bin/install.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "claude",
+    "skills",
+    "cli",
+    "installer"
+  ],
+  "author": "Carlos Eduardo",
+  "license": "MIT"
+}
