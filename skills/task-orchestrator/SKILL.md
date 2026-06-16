@@ -139,7 +139,7 @@ Regras:
 
 - Nunca reutilizar a mesma worktree entre tasks.
 - Nunca criar worktree de task `[API]` em `admin/` (ou vice-versa).
-- O orquestrador **nunca** delega escrita em `<spec_dir>/_tasks.md` aos workers.
+- O `/execute-task` cuida de atualizar `task_NN.md` e `_tasks.md` — a spec fica fora de qualquer Git, portanto não há conflito de worktree nessas escritas.
 
 `<spec_dir>` usa caminho **absoluto** nos prompts (workers leem PRD/tasks fora do repo Git).
 
@@ -186,25 +186,10 @@ Falha → `failed` / `worktree_creation_failed`; não avance a onda sem tratar.
 ```md
 Você é um agente de implementação isolado para <task_id>.
 
-Contexto:
-- modo: multi-repo
-- repo_root: <REPO_ROOT> (absoluto)
-- worktree_path: <WT_PATH> (absoluto)
-- branch: task/<spec-slug>/task_XX
-- spec_dir: <spec_dir> (absoluto; pode estar fora do Git)
-- workspace_prefix: [API]|[Admin]|[App] — altere código só em repo_root
+Use /execute-task para <spec_dir>/task_NN.md
 
-Use o skill /execute-task com:
-- task_file: <spec_dir>/task_NN.md
-- spec_dir: <spec_dir>
-- tracking_file: <spec_dir>/_tasks.md
-- auto_commit: true
-
-Restrições:
-- Trabalhe apenas em worktree_path (código do subprojeto).
-- Leia CLAUDE.md na raiz do workspace e CLAUDE.md em repo_root.
-- Não atualize <spec_dir>/_tasks.md.
-- Não comunique com o usuário.
+O worktree já está em <WT_PATH> (branch task/<spec-slug>/task_XX).
+Todo o código do subprojeto fica em <REPO_ROOT> — o execute-task deve trabalhar nesse caminho.
 
 Retorno (somente JSON):
 {
@@ -310,7 +295,6 @@ Integração por repo:
 ## Guardrails
 
 - Nunca iniciar task com dependência não `done`.
-- Nunca escrever `_tasks.md` em paralelo (só orquestrador, após integração).
 - Nunca avançar de onda sem reconciliar workers + integração + tracking.
 - Nunca usar worktree de um repo para task de outro `repo_key`.
 - Nunca declarar sucesso sem cherry-pick (ou merge) bem-sucedido no repo da task.
