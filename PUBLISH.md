@@ -1,6 +1,6 @@
 # Publicação no npm
 
-Este guia explica como publicar o `@carlos-eduardo/claude-skills` no npm (se desejado).
+Este guia explica como publicar o `@carlos-eduardo/agents-skills` no npm (se desejado).
 
 ## Pré-requisitos
 
@@ -14,7 +14,7 @@ Este guia explica como publicar o `@carlos-eduardo/claude-skills` no npm (se des
 
 ```bash
 # Na raiz do repositório
-cd /Users/carlos.eduardo/dev/pessoais/claude-skills
+cd /Users/carlos.eduardo/dev/pessoais/agents-skills
 
 # Login no npm (primeira vez)
 npm login
@@ -42,11 +42,11 @@ Após publicado, qualquer pessoa pode instalar com:
 
 ```bash
 # Instalação global
-npm install -g @carlos-eduardo/claude-skills
-claude-skills
+npm install -g @carlos-eduardo/agents-skills
+agents-skills
 
 # Ou diretamente com npx
-npx @carlos-eduardo/claude-skills
+npx @carlos-eduardo/agents-skills
 ```
 
 ## Versionamento Semântico
@@ -59,13 +59,13 @@ npx @carlos-eduardo/claude-skills
 
 ```bash
 # Ver informações do package
-npm view @carlos-eduardo/claude-skills
+npm view @carlos-eduardo/agents-skills
 
 # Ver versões publicadas
-npm view @carlos-eduardo/claude-skills versions
+npm view @carlos-eduardo/agents-skills versions
 
 # Instalar versão específica
-npm install @carlos-eduardo/claude-skills@1.0.0
+npm install @carlos-eduardo/agents-skills@1.0.0
 ```
 
 ## Alternativa: GitHub Packages
@@ -94,7 +94,7 @@ npm login
 
 ### Desativar uma versão
 ```bash
-npm unpublish @carlos-eduardo/claude-skills@1.0.0
+npm unpublish @carlos-eduardo/agents-skills@1.0.0
 ```
 
 ## Links Úteis

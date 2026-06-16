@@ -3,7 +3,7 @@
 ## Estrutura do Repositório
 
 ```
-claude-skills/
+agents-skills/
 ├── bin/
 │   └── install.js          # CLI script de instalação
 ├── skills/                 # Todas as skills disponíveis
@@ -20,11 +20,11 @@ claude-skills/
 
 ```bash
 # No diretório do repositório
-cd /Users/carlos.eduardo/dev/pessoais/claude-skills
+cd /Users/carlos.eduardo/dev/pessoais/agents-skills
 npm link
 
 # Em qualquer projeto
-claude-skills
+agents-skills
 ```
 
 ### Opção 2: Direto do repositório
@@ -38,7 +38,7 @@ node bin/install.js
 
 ```bash
 # Usar versão publicada no npm
-npx @carlos-eduardo/claude-skills
+npx @carlos-eduardo/agents-skills
 ```
 
 ## Como Adicionar Novas Skills
@@ -93,7 +93,7 @@ ls -la skills/
 du -sh .
 
 # Teste de instalação
-npm link && cd /tmp && mkdir test-project && cd test-project && npm link @carlos-eduardo/claude-skills && node -e "require('@carlos-eduardo/claude-skills')"
+npm link && cd /tmp && mkdir test-project && cd test-project && npm link @carlos-eduardo/agents-skills && node -e "require('@carlos-eduardo/agents-skills')"
 ```
 
 ## Troubleshooting
@@ -105,7 +105,7 @@ chmod +x bin/install.js
 
 ### Se o npm link não funciona:
 ```bash
-npm unlink -g @carlos-eduardo/claude-skills
+npm unlink -g @carlos-eduardo/agents-skills
 npm link
 ```
 

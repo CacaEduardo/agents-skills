@@ -1,11 +1,11 @@
-# Claude Skills Installer
+# Agents Skills Installer
 
-Um CLI interativo para instalar skills do Claude Code em qualquer projeto.
+Um CLI interativo para instalar Agent skills em qualquer projeto.
 
 ## 🚀 Instalação Rápida
 
 ```bash
-npx @carlos-eduardo/claude-skills
+npx @carlos-eduardo/agents-skills
 ```
 
 ## 📋 Skills Disponíveis
@@ -32,7 +32,7 @@ npx @carlos-eduardo/claude-skills
 
 ```bash
 # Na raiz do seu projeto
-npx @carlos-eduardo/claude-skills
+npx @carlos-eduardo/agents-skills
 ```
 
 Após executar, você verá:
