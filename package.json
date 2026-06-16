@@ -6,6 +6,12 @@
   "bin": {
     "claude-skills": "./bin/install.js"
   },
+  "main": "bin/install.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carlos-eduardo/claude-skills.git"
+  },
+  "homepage": "https://github.com/carlos-eduardo/claude-skills#readme",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -13,8 +19,19 @@
     "claude",
     "skills",
     "cli",
-    "installer"
+    "installer",
+    "agent",
+    "prd",
+    "techspec",
+    "automation"
   ],
-  "author": "Carlos Eduardo",
-  "license": "MIT"
+  "author": "Carlos Eduardo <ce.fonsecasilva@gmail.com>",
+  "license": "MIT",
+  "files": [
+    "bin/",
+    "skills/",
+    "README.md",
+    "DEVELOPMENT.md",
+    "package.json"
+  ]
 }
