@@ -87,7 +87,7 @@ async function selectSkills(availableSkills) {
 
 async function main() {
   try {
-    console.log('\n🚀 Claude Skills Installer\n');
+    console.log('\n🚀 Agents Skills Installer\n');
 
     const availableSkills = await getSkills();
 
