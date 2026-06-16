@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import fs from 'fs-extra';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'readline';
@@ -23,11 +23,27 @@ function question(prompt) {
 }
 
 async function getSkills() {
-  const entries = await fs.readdir(skillsDir, { withFileTypes: true });
+  const entries = await fs.promises.readdir(skillsDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
+}
+
+async function copyDir(src, dest) {
+  await fs.promises.mkdir(dest, { recursive: true });
+  const entries = await fs.promises.readdir(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await fs.promises.copyFile(srcPath, destPath);
+    }
+  }
 }
 
 async function copySkill(skillName, destination) {
@@ -35,7 +51,7 @@ async function copySkill(skillName, destination) {
   const dest = path.join(destination, '.agents', 'skills', skillName);
 
   console.log(`✓ Installing ${skillName}...`);
-  await fs.copy(source, dest);
+  await copyDir(source, dest);
 }
 
 async function selectSkills(availableSkills) {
