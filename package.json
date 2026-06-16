@@ -27,6 +27,9 @@
   ],
   "author": "Carlos Eduardo <ce.fonsecasilva@gmail.com>",
   "license": "MIT",
+  "dependencies": {
+    "inquirer": "^8.2.5"
+  },
   "files": [
     "bin/",
     "skills/",

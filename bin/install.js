@@ -3,24 +3,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import readline from 'readline';
+import inquirer from 'inquirer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillsDir = path.join(__dirname, '..', 'skills');
 const destDir = process.cwd();
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-function question(prompt) {
-  return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
-      resolve(answer);
-    });
-  });
-}
 
 async function getSkills() {
   const entries = await fs.promises.readdir(skillsDir, { withFileTypes: true });
@@ -50,39 +37,8 @@ async function copySkill(skillName, destination) {
   const source = path.join(skillsDir, skillName);
   const dest = path.join(destination, '.agents', 'skills', skillName);
 
-  console.log(`✓ Installing ${skillName}...`);
+  process.stdout.write(`✓ Installing ${skillName}...\n`);
   await copyDir(source, dest);
-}
-
-async function selectSkills(availableSkills) {
-  console.log('\n📦 Available Claude Skills:\n');
-  availableSkills.forEach((skill, index) => {
-    console.log(`  ${index + 1}. ${skill}`);
-  });
-
-  console.log('\n💡 Select skills to install:');
-  console.log('   Enter numbers separated by commas (e.g., 1,3,5)');
-  console.log('   Or press Enter to select all\n');
-
-  const answer = await question('Your selection: ');
-
-  if (!answer.trim()) {
-    return availableSkills;
-  }
-
-  const selected = answer
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s)
-    .map((s) => parseInt(s, 10) - 1)
-    .filter((idx) => idx >= 0 && idx < availableSkills.length);
-
-  if (selected.length === 0) {
-    console.log('❌ Invalid selection');
-    return selectSkills(availableSkills);
-  }
-
-  return selected.map((idx) => availableSkills[idx]);
 }
 
 async function main() {
@@ -96,7 +52,23 @@ async function main() {
       process.exit(1);
     }
 
-    const selectedSkills = await selectSkills(availableSkills);
+    // Seleção com checkboxes
+    const answers = await inquirer.prompt([
+      {
+        type: 'checkbox',
+        name: 'skills',
+        message: '📦 Select skills to install:',
+        choices: availableSkills.map((skill) => ({
+          name: skill,
+          value: skill,
+        })),
+        validate: (answer) => {
+          return answer.length > 0 || 'You must select at least one skill';
+        },
+      },
+    ]);
+
+    const selectedSkills = answers.skills;
 
     console.log(`\n📥 Installing ${selectedSkills.length} skill(s) to ${destDir}\n`);
 
@@ -106,11 +78,8 @@ async function main() {
 
     console.log('\n✅ Installation complete!\n');
     console.log('Your skills have been installed to: .agents/skills/\n');
-
-    rl.close();
   } catch (error) {
     console.error('❌ Error:', error.message);
-    rl.close();
     process.exit(1);
   }
 }
