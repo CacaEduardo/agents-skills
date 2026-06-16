@@ -5,6 +5,10 @@ Um CLI interativo para instalar Agent skills em qualquer projeto.
 ## 🚀 Instalação Rápida
 
 ```bash
+# Via GitHub (agora disponível)
+npx github:CacaEduardo/agents-skills
+
+# Via npm (quando publicado)
 npx @carlos-eduardo/agents-skills
 ```
 
@@ -28,31 +32,53 @@ npx @carlos-eduardo/agents-skills
 
 ## 💻 Como Usar
 
-### Instalação Interativa
+### Instalação Interativa com Checkboxes
 
 ```bash
 # Na raiz do seu projeto
 npx @carlos-eduardo/agents-skills
 ```
 
-Após executar, você verá:
-
-1. **Lista de skills disponíveis** com números
-2. **Prompt para seleção** - escolha por números separados por vírgula
-3. **Confirmação e cópia** dos arquivos selecionados
-
-### Exemplos de Seleção
+Após executar, você verá uma **interface interativa com checkboxes**:
 
 ```
-Selecionar skills 1, 3 e 5:
-1,3,5
+🚀 Agents Skills Installer
 
-Selecionar todas as skills:
-(apenas pressione Enter)
-
-Selecionar skills 1 a 3:
-1,2,3
+? 📦 Select skills to install: (Press <space> to select, <a> to toggle all, <i> to invert selection)
+❯◯ create-prd
+ ◯ create-tasks
+ ◯ create-techspec
+ ◯ document-plan
+ ◯ execute-task
+ ◯ final-verify
+ ◯ fix-reviews
+ (Move up and down to reveal more choices)
 ```
+
+### 🎮 Controles
+
+| Tecla | Ação |
+|-------|------|
+| **↑ ↓** | Navegar entre skills |
+| **ESPAÇO** | Marcar/desmarcar skill |
+| **A** | Marcar/desmarcar todas |
+| **I** | Inverter seleção |
+| **ENTER** | Confirmar seleção |
+
+### Exemplos de Uso
+
+1. **Selecionar skills específicas:**
+   - Navegue com ↑ ↓
+   - Marque com ESPAÇO
+   - Pressione ENTER
+
+2. **Selecionar todas:**
+   - Pressione **A**
+   - Pressione ENTER
+
+3. **Inverter seleção:**
+   - Pressione **I**
+   - Pressione ENTER
 
 ## 📁 Estrutura de Instalação
 
