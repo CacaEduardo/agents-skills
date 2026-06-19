@@ -1,11 +1,14 @@
 ---
 name: task-orchestrator
-description: Orquestra tasks pendentes de uma spec em ondas de dependência, com worktrees por task e integração centralizada. Suporta layout multi-repo (api/, admin/, app/ com Git separados e spec na raiz sem Git) e monorepo único. Use quando o usuário quiser executar uma spec inteira em paralelo sem conflito de arquivos. Não use para uma task isolada.
+description: Orquestra tasks pendentes de uma spec em ondas de dependência, com worktrees por task, workers isolados (context_task_XX.md) e integração centralizada. Executa todas as ondas até zerar pending em _tasks.md. Genérico para qualquer layout Git (monorepo ou multi-repo). Workers usam execute-orchestrated-task. Use para executar uma spec inteira em paralelo. Não use para uma task isolada.
 ---
 
 # Task Orchestrator
 
-Execute automaticamente todas as tasks pendentes de uma spec com paralelismo seguro e tracking centralizado.
+Execute automaticamente todas as tasks pendentes de uma spec com paralelismo seguro.
+
+- **Orquestrador:** gerencia subagents, Git (worktrees, cherry-pick) e `_tasks.md`.
+- **Workers:** implementam e concluem `task_NN.md` via `/execute-orchestrated-task`.
 
 ## Uso
 
@@ -13,301 +16,385 @@ Execute automaticamente todas as tasks pendentes de uma spec com paralelismo seg
 /task-orchestrator .specs/<feature-name>/
 ```
 
-O argumento é o caminho do diretório da spec relativo à raiz do workspace (ex.: `.specs/painel-admin-gestao-completa/`).
+O argumento é o caminho do diretório da spec relativo à raiz do workspace.
+
+## Divisão de responsabilidades
+
+| Responsável | Artefato | O quê |
+|-------------|----------|-------|
+| **Worker** | `task_NN.md` | Checkboxes, frontmatter `completed`, validação — via `execute-orchestrated-task` |
+| **Worker** | Código | Commits na branch `task/<spec-slug>/task_NN` no worktree |
+| **Orquestrador** | `_tasks.md` | **Único dono** — `completed` somente após cherry-pick |
+| **Orquestrador** | Git | Worktrees, ondas, integração em `orchestrator/<spec-slug>`, cleanup |
+
+Workers **nunca** escrevem `_tasks.md`. O `execute-orchestrated-task` foi criado para isso — não use `execute-task` nos workers.
 
 ## Objetivo
 
-- Respeitar o grafo de dependências em **ondas** (incluindo deps entre `[API]` e `[Admin]`).
-- Isolar implementação por task via **git worktree** no repositório correto.
-- Integrar código **somente no orquestrador** (cherry-pick ou merge na branch de orquestração de cada repo).
-- Atualizar `<spec_dir>/_tasks.md` **somente no orquestrador** (sem concorrência).
+- Respeitar dependências em **ondas** (cross-repo quando aplicável).
+- Isolar implementação por task via **git worktree** no `git_root` correto.
+- Integrar código **somente no orquestrador** (cherry-pick ou merge).
+- **Executar todas as ondas numa sessão**, sem parar entre elas.
+
+## Regra de ouro
+
+> **Uma onda integrada ≠ spec concluída.**
+>
+> Encerre somente quando `_tasks.md` tiver **zero** linhas com status `pending`.
+> Após integrar onda N, inicie onda N+1 na mesma sessão se houver elegíveis.
+> Retorno de subagent ≠ fim do orchestrator.
+
+### Após cada onda — checklist obrigatório
+
+1. Ler `<spec_dir>/_tasks.md` do disco.
+2. Contar: `pending`, `completed`, `failed`.
+3. Se `pending` > 0 e há elegíveis → **Micro-relatório** e **Fase 4 imediata**.
+4. Se `pending` > 0 sem elegíveis → corrigir tracking ou marcar `failed`.
+5. Só se `pending` = 0 → **Relatório Final**.
+
+```md
+## Task Orchestrator — Onda <N> integrada
+
+- Integradas: task_A, task_B
+- Tracking: <P> pending · <C> completed · <F> failed
+- **Próxima ação:** iniciando onda <N+1> agora.
+```
+
+Máximo 6 linhas; **continue executando** sem esperar o usuário.
+
+### O que NÃO fazer
+
+- Não emitir "Concluído" com `pending` > 0.
+- Não pedir "deseja continuar?" entre ondas.
+- Não usar `execute-task` nos workers — use `execute-orchestrated-task`.
+
+## Isolamento de contexto
+
+Cada worker = nova sessão (`Task`, `run_in_background: true`).
+
+Persiste entre tasks:
+
+- Commits nas branches de task
+- `task_NN.md` (worker)
+- `_tasks.md` (orquestrador)
+- Conjunto `integrated_tasks`
+- JSON de retorno
+
+Passe aos workers apenas caminhos absolutos + `context_task_XX.md` — sem histórico de conversas.
+
+Após JSON: deletar `context_task_XX.md`; nunca reutilizar sessão.
 
 ## Inputs obrigatórios
 
-- `spec_dir` — diretório da spec (contém `_tasks.md`, `_prd.md`, `task_NN.md`).
+- `spec_dir` — contém `_tasks.md`, `_prd.md`, `_techspec.md`, `task_NN.md`.
 
-## Layout do repositório (detectar na Fase 1)
+## Fase 1 — Spec, Git e grafo
 
-Antes de planejar ondas, detecte o modo de execução:
+### 1.1 Spec e dependências
+
+1. `<spec_dir>/_tasks.md` — tabela: `#` → `task_NN`, Status, Dependencies.
+2. `<spec_dir>/_prd.md` e `<spec_dir>/_techspec.md`.
+3. `<spec_dir>/task_NN.md` para tasks `pending`.
+
+Valide IDs, ausência de ciclos, formato `task_01` (não `task_1`).
+
+Defina:
+
+- `spec_slug` = nome do diretório da spec
+- `WORKSPACE_ROOT` = raiz do workspace (absoluto)
+- `integrated_tasks` = tasks já `completed` no mestre **e** confirmadas por integração anterior
+
+**Elegível:** status `pending` em `_tasks.md` e todas deps ∈ `integrated_tasks`.
+
+### 1.2 Detecção Git (genérica)
 
 ```bash
-# Na raiz do workspace (pai de api/, admin/, spec/)
-git rev-parse --is-inside-work-tree 2>/dev/null && echo monorepo-candidate
+WORKSPACE_ROOT="<absoluto>"
 
-# Por subprojeto
-for d in api admin app; do
-  git -C "$d" rev-parse --is-inside-work-tree 2>/dev/null && echo "repo: $d"
+git -C "$WORKSPACE_ROOT" rev-parse --is-inside-work-tree 2>/dev/null && echo monorepo
+
+for d in "$WORKSPACE_ROOT"/*/; do
+  git -C "$d" rev-parse --is-inside-work-tree 2>/dev/null && echo "git-root: $d"
 done
 ```
 
-| Modo | Condição | Onde criar worktrees / branches |
-|------|----------|----------------------------------|
-| **multi-repo** (padrão 1Trainer) | Raiz **sem** Git; `api/`, `admin/` e/ou `app/` **com** Git | Dentro de cada `<repo>/` usado pela task |
-| **monorepo** | Raiz **com** Git | Na raiz: `.worktrees/<spec-slug>/task_XX` |
+| Modo | Worktrees |
+|------|-----------|
+| **monorepo** | `$WORKSPACE_ROOT/.worktrees/<spec-slug>/task_NN` |
+| **multi-repo** | `<git-root>/.worktrees/<spec-slug>/task_NN` |
+| **sem Git** | Parar Fase 3 |
 
-Se **nenhum** caminho tiver Git: pare na Fase 3 e informe o usuário (não há isolamento por worktree).
+A spec pode ficar **fora** de qualquer Git.
 
-A spec (`.specs/...`) pode ficar **fora** de qualquer repositório Git — isso é esperado no layout multi-repo.
+### 1.3 Task → git_root
 
-### Mapeamento task → repositório
+Para cada task `pending`:
 
-Pelo prefixo do título em `_tasks.md`:
+1. Leia paths em `task_NN.md` (requirements, Relevant Files, Implementation Details).
+2. Mapeie cada path ao `git_root` que o contém.
+3. Todos no mesmo root → OK.
+4. Paths cruzando roots distintos → serializar ou `failed`.
+5. Sem paths → use único root; ambíguo → perguntar na Fase 2.
 
-| Prefixo | `repo_key` | Diretório |
-|---------|------------|-----------|
-| `[API]` | `api` | `api/` |
-| `[Admin]` | `admin` | `admin/` |
-| `[App]` | `app` | `app/` |
-
-Monte também: `task -> repo_key`, `task -> depends_on[]`.
-
-**Dependências cross-repo:** uma task `[Admin]` que depende de `task_03` `[API]` só entra na onda quando `task_03` estiver `done` no `_tasks.md`, mesmo com worktrees em repositórios diferentes. Não há merge Git entre `api` e `admin` — o contrato é de API pronta + tracking atualizado.
-
-## Fase 1 — Estudo da spec e grafo
-
-1. `<spec_dir>/_tasks.md` — `id`, título, `status`, dependências; valide IDs e ausência de ciclos.
-2. `<spec_dir>/_prd.md` e `<spec_dir>/_techspec.md`.
-3. `<spec_dir>/task_NN.md` apenas para tasks `pending`.
-
-Identifique tasks elegíveis: `pending` com todas as dependências `done`.
-
-Defina `spec_slug` = nome do diretório da spec (ex.: `painel-admin-gestao-completa`).
-
-Liste `active_repos` = conjunto de `repo_key` que aparecem em tasks ainda não `done`.
+Monte: `task_id → git_root`, `task_id → depends_on[]`.
 
 ## Fase 2 — Planejamento e confirmação
-
-Exiba o roteiro **antes** de executar:
 
 ```md
 ## Task Orchestrator — Roteiro de Execução
 
-Modo: multi-repo | monorepo
-Spec: <spec_dir> (sem Git | na raiz do repo)
+Modo: monorepo | multi-repo
+Spec: <spec_dir>
+Workspace: <WORKSPACE_ROOT>
 
-| Repo   | Branch de orquestração              | Worktrees                          |
-|--------|-------------------------------------|------------------------------------|
-| api    | orchestrator/<spec-slug>            | api/.worktrees/<spec-slug>/task_XX |
-| admin  | orchestrator/<spec-slug>            | admin/.worktrees/<spec-slug>/task_XX |
+| Git root | Branch orquestração | Worktrees |
+|----------|---------------------|-----------|
+| <path>   | orchestrator/<spec-slug> | <git-root>/.worktrees/<spec-slug>/task_NN |
 
-Concorrência máxima: 4 · Integração: cherry-pick · Cleanup em falha: manter worktree
+Concorrência: 4 · Integração: cherry-pick · Worker skill: execute-orchestrated-task
 
-| Onda | Tasks (paralelas)     | Repos envolvidos | Aguarda   |
-|------|-------------------------|------------------|-----------|
-| 1    | task_01, task_07        | api, admin       | —         |
-| 2    | task_02, task_14        | api, admin       | onda 1    |
+| Onda | Tasks | Git roots | Aguarda |
+|------|-------|-----------|---------|
+| 1    | ...   | ...       | —       |
 
-Total: N tasks · M ondas · Pico: X workers (máx. 4 por lote)
-Tasks já concluídas: <lista ou "nenhuma">
+Total: N tasks · M ondas
+Já integradas: <lista>
 ```
 
-Também informe, por repo ativo:
+Informe branch atual por `git_root`. Confirmação **uma única vez** antes da Fase 3.
 
-- branch atual detectado (`git -C <repo> branch --show-current`);
-- se a branch de orquestração será **criada** a partir da atual ou se o usuário definiu outra base.
+## Loop principal (Fases 4 → 5 → 6)
 
-**Multi-repo:** tasks em repos diferentes na mesma onda podem rodar **em paralelo** (ex.: `task_01` + `task_07`).
+```
+wave := 1
+integrated_tasks := { já confirmadas }
 
-Peça confirmação do usuário antes da Fase 3.
+loop:
+  pending := count(_tasks.md, "pending")
+  if pending == 0: goto FINAL_REPORT
 
-## Fase 3 — Preparação (por modo)
+  eligible := pending com deps ⊆ integrated_tasks
+  if eligible empty and pending > 0: goto HANDLE_BLOCKED
 
-### Multi-repo
+  run_wave(eligible, max_parallel=4)
+  integrate_and_update_master()
+  write_checkpoint()
+  emit MICRO_REPORT(wave)
+  STOP_CHECK
+  wave += 1
+  goto loop
 
-Para cada `repo_key` em `active_repos`:
+FINAL_REPORT
+```
 
-1. `REPO_ROOT=<workspace>/<repo_key>/`
-2. Confirmar Git: `git -C "$REPO_ROOT" rev-parse --is-inside-work-tree`
-3. Registrar `base_branch` = branch atual (ou a que o usuário confirmou).
-4. Criar branch de orquestração (se não existir):
-   ```bash
-   git -C "$REPO_ROOT" checkout -b orchestrator/<spec-slug> "$base_branch"
-   ```
-   Se já existir, fazer checkout nela.
-5. Criar diretório de worktrees:
-   ```bash
-   mkdir -p "$REPO_ROOT/.worktrees/<spec-slug>"
-   ```
+**STOP CHECK:** se `pending` > 0, **não encerre** — volte ao loop.
 
-Convenções **por repo** (mesmo `spec_slug`):
+## Retomar execução
 
-- Branch de orquestração: `orchestrator/<spec-slug>`
-- Branch por task: `task/<spec-slug>/task_XX`
-- Worktree: `<repo>/.worktrees/<spec-slug>/task_XX`
+1. Ler `<spec_dir>/.orchestrator_checkpoint`, depois `_tasks.md`.
+2. Reconstruir `integrated_tasks`.
+3. `git checkout orchestrator/<spec-slug>` em cada `git_root` ativo.
+4. Entrar no loop sem novo roteiro completo.
 
-Regras:
+## Fase 3 — Preparação Git
 
-- Nunca reutilizar a mesma worktree entre tasks.
-- Nunca criar worktree de task `[API]` em `admin/` (ou vice-versa).
-- O `/execute-task` cuida de atualizar `task_NN.md` e `_tasks.md` — a spec fica fora de qualquer Git, portanto não há conflito de worktree nessas escritas.
+Por `git_root` usado:
 
-`<spec_dir>` usa caminho **absoluto** nos prompts (workers leem PRD/tasks fora do repo Git).
+```bash
+git -C "$GIT_ROOT" checkout -B "orchestrator/<spec-slug>" "$base_branch"
+mkdir -p "$GIT_ROOT/.worktrees/<spec-slug>"
+```
 
-### Monorepo
+Convenções:
 
-1. `git rev-parse` na raiz do workspace.
-2. Branch de orquestração: `orchestrator/<spec-slug>` na raiz.
-3. Worktrees: `.worktrees/<spec-slug>/task_XX` na raiz.
-4. Demais fases iguais, com um único `REPO_ROOT` = raiz.
+- Orquestração: `orchestrator/<spec-slug>`
+- Task: `task/<spec-slug>/task_NN`
+- Worktree: `$GIT_ROOT/.worktrees/<spec-slug>/task_NN`
+
+### Symlink `node_modules` (macOS)
+
+Após `git worktree add`, antes do worker:
+
+```bash
+find "$GIT_ROOT" -name package.json -not -path "*/node_modules/*" | while read -r pkg; do
+  dir=$(dirname "$pkg")
+  rel="${dir#$GIT_ROOT/}"
+  [ "$rel" = "$dir" ] && rel="."
+  src="$GIT_ROOT/$rel/node_modules"
+  dst="$WT_PATH/$rel/node_modules"
+  [ -d "$src" ] && [ ! -e "$dst" ] && ln -s "$src" "$dst"
+done
+```
+
+Workers **não** rodam install.
 
 ## Fase 4 — Execução em ondas
 
-Repita até não restarem tasks `pending`:
+Início de **cada** iteração: reler `_tasks.md`.
 
-1. **Próxima onda:** tasks `pending` com dependências `done` (global, cross-repo).
-2. **Limite:** máximo `max_parallel` (default `4`) por lote.
-3. **Serialização defensiva:** no **mesmo** `repo_key`, serialize tasks `[API]` com risco em rotas compartilhadas ou mesmo módulo crítico; em dúvida, serialize.
-4. **Paralelo entre repos:** no multi-repo, tasks de `api` e `admin` na mesma onda podem rodar juntas se dependências permitirem.
+1. Onda = tasks `pending` elegíveis (deps ⊆ `integrated_tasks`).
+2. Máximo 4 por lote.
+3. Mesmo `git_root` + módulo compartilhado → serializar; em dúvida, serializar.
+4. `git_root` diferentes → paralelo.
 
 ### Por task no lote
 
-**a) Resolver `REPO_ROOT` e paths**
-
-```
-repo_key  = mapa da task ([API] -> api, etc.)
-REPO_ROOT = <workspace>/<repo_key>/
-WT_PATH   = REPO_ROOT/.worktrees/<spec-slug>/task_XX
-BRANCH    = task/<spec-slug>/task_XX
-```
-
-**b) Criar branch e worktree** (no repo correto)
+**a) Worktree**
 
 ```bash
-git -C "$REPO_ROOT" worktree add \
-  ".worktrees/<spec-slug>/task_XX" \
-  -b "task/<spec-slug>/task_XX" \
+git -C "$GIT_ROOT" worktree add \
+  ".worktrees/<spec-slug>/task_NN" \
+  -b "task/<spec-slug>/task_NN" \
   "orchestrator/<spec-slug>"
 ```
 
-Falha → `failed` / `worktree_creation_failed`; não avance a onda sem tratar.
+**b) Symlink node_modules** (se aplicável).
 
-**c) Worker em background** (`run_in_background: true`)
+**c) Context Builder (orquestrador, inline)**
+
+Gravar `<spec_dir>/context_task_NN.md`:
 
 ```md
-Você é um agente de implementação isolado para <task_id>.
+# Contexto — task_NN
 
-Use /execute-task para <spec_dir>/task_NN.md
+## Requisitos do PRD
+<!-- seções extraídas -->
 
-O worktree já está em <WT_PATH> (branch task/<spec-slug>/task_XX).
-Todo o código do subprojeto fica em <REPO_ROOT> — o execute-task deve trabalhar nesse caminho.
+## Especificação Técnica
+<!-- seções extraídas -->
+
+## Estado de dependências
+<!-- dep integrada: task_id + summary do JSON -->
+```
+
+**d) Worker** (`Task`, `run_in_background: true`)
+
+```md
+Você é um worker isolado para <task_id>.
+Não fale com o usuário. Sessão nova, sem histórico.
+
+Use execute-orchestrated-task com:
+- task_file: <spec_dir>/task_NN.md
+- spec_dir: <spec_dir>
+- context_file: <spec_dir>/context_task_NN.md
+- worktree_path: <WT_PATH>
+- git_root: <GIT_ROOT>
+- auto_commit: true
+
+Leia antes (se existirem):
+- <WORKSPACE_ROOT>/AGENTS.md ou CLAUDE.md
+- <GIT_ROOT>/AGENTS.md ou CLAUDE.md
 
 Retorno (somente JSON):
 {
-  "task_id": "task_XX",
-  "repo_key": "api|admin|app",
+  "task_id": "task_NN",
+  "git_root": "<GIT_ROOT>",
   "status": "done|failed",
-  "branch": "task/<spec-slug>/task_XX",
+  "branch": "task/<spec-slug>/task_NN",
   "commits": ["<sha>"],
-  "summary": "resumo curto",
+  "task_file_status": "completed|unchanged|failed",
+  "summary": "resumo pt-BR",
   "error": ""
 }
 ```
 
-**d)** Aguarde **todos** os workers do lote antes da Fase 5.
+**e)** Aguardar **todos** os workers antes da Fase 5.
 
-## Fase 5 — Integração centralizada
+## Fase 5 — Integração e `_tasks.md`
 
-Agrupe resultados por `repo_key`. Para cada worker com `status=done`:
+Por worker com `status=done`:
 
-1. `git -C "$REPO_ROOT" checkout orchestrator/<spec-slug>`
-2. Verificar commits em `task/<spec-slug>/task_XX` vs orquestração.
-3. Integrar (padrão):
+1. Validar `task_NN.md`: frontmatter `completed` + checkboxes. Incompleto → `failed`, não integrar.
+2. `git -C "$GIT_ROOT" checkout orchestrator/<spec-slug>`
+3. Cherry-pick:
    ```bash
-   git -C "$REPO_ROOT" cherry-pick <SHA1> <SHA2> ...
+   git -C "$GIT_ROOT" cherry-pick <SHA1> <SHA2> ...
    ```
-   Alternativa: `merge --no-ff task/<spec-slug>/task_XX`.
+4. Se OK:
+   - `integrated_tasks` += task_id
+   - `_tasks.md` → `completed` (**único escritor**)
+   - Deletar `context_task_NN.md`
+   - Cleanup worktree
+5. Conflito → `failed` ou pausar.
 
-4. Se OK → marcar task `done` em `<spec_dir>/_tasks.md` (único escritor).
-5. Se conflito → marcar `failed` ou pausar; não iniciar próxima onda até decisão.
+## Fase 6 — Revalidação
 
-Ordem sugerida na mesma onda: integrar primeiro tasks do mesmo repo na ordem que evita conflitos de cherry-pick (geralmente ordem de conclusão dos workers).
+1. Reler `_tasks.md`.
+2. Conferir JSON ↔ commits ↔ `task_NN.md` ↔ mestre.
+3. Gravar `.orchestrator_checkpoint`:
 
-**Cross-repo:** integrações em `api` e `admin` são independentes; o `_tasks.md` unifica o estado da feature.
+```json
+{
+  "spec_dir": "<spec_dir>",
+  "spec_slug": "<spec-slug>",
+  "last_wave": 2,
+  "integrated_tasks": ["task_01"],
+  "pending": 3,
+  "failed": []
+}
+```
 
-## Fase 6 — Revalidação do tracking
-
-Após cada onda:
-
-1. Releia `<spec_dir>/_tasks.md`.
-2. Confira: retorno JSON dos workers ↔ commits na branch de orquestração de cada repo ↔ status no tracking.
-3. Divergência → pare e reporte.
+4. Se `pending` > 0 → Micro-relatório + Fase 4.
+5. Apagar checkpoint quando `pending` = 0.
 
 ## Regras de paralelismo
 
 | Situação | Comportamento |
 |----------|---------------|
-| Dependência `pending` ou `failed` | Nunca iniciar a task |
-| Tasks em `repo_key` diferentes | Paralelo (multi-repo) |
-| Várias tasks `[API]` na mesma onda | Serializar defensivamente em `api/` |
-| Várias tasks `[Admin]` em módulos distintos | Paralelo em `admin/` |
-| Dúvida sobre conflito no mesmo repo | Serializar |
-| Onda com mais de `max_parallel` tasks | Dividir em lotes |
-
-Worktree isola edição simultânea; cherry-pick ainda pode conflitar na branch de orquestração.
+| Dep ∉ `integrated_tasks` | Nunca iniciar |
+| `git_root` diferentes | Paralelo |
+| Mesmo `git_root`, mesmo módulo | Serializar |
+| Lote > 4 | Dividir |
 
 ## Tratamento de erros
 
-Reporte: `task_id`, título, `repo_key`, etapa, impacto, próxima ação.
-
 | Erro | Ação |
 |------|------|
-| Nenhum Git em raiz nem em subprojetos | Parar na Fase 3 |
-| `worktree_creation_failed` | Pular / retentar / abortar |
-| `worker_no_commit` | Falha — retentar / pular / abortar |
-| `cherry_pick_conflict` | Pausar integração naquele repo |
-| Inconsistência worker vs tracking | Parar onda |
+| Sem Git | Parar Fase 3 |
+| `worktree_creation_failed` | Retentar / abortar |
+| `worker_no_commit` | Falha |
+| `task_file_incomplete` | Não integrar |
+| `cherry_pick_conflict` | Pausar repo |
 
-## Cleanup
-
-Por task integrada com sucesso:
+## Cleanup (macOS)
 
 ```bash
-git -C "$REPO_ROOT" worktree remove ".worktrees/<spec-slug>/task_XX"
-git -C "$REPO_ROOT" branch -d "task/<spec-slug>/task_XX"
+WT_ABS="$GIT_ROOT/.worktrees/<spec-slug>/task_NN"
+find "$WT_ABS" -name node_modules -type l -exec rm {} \;
+git -C "$GIT_ROOT" worktree remove ".worktrees/<spec-slug>/task_NN"
+git -C "$GIT_ROOT" branch -D "task/<spec-slug>/task_NN"
 ```
 
-Tasks `failed`: manter worktree no repo correspondente para debug.
-
-Ao encerrar (sem falhas pendentes): remover diretórios vazios em `*/.worktrees/<spec-slug>/`.
-
-Branches `task/<spec-slug>/*` integradas podem ser apagadas; manter `orchestrator/<spec-slug>` até PR/merge manual em cada repo.
+Tasks `failed`: manter worktree para debug.
 
 ## Relatório final
 
 ```md
 ## Task Orchestrator — Concluído
 
-Modo: multi-repo
-✅ tasks concluídas: N/N
-❌ tasks com falha: F
-🌊 ondas: M
-
-Integração por repo:
-- api: orchestrator/<spec-slug> — N commits
-- admin: orchestrator/<spec-slug> — N commits
-
-⚠️ conflitos: <nenhum ou resumo por repo>
-🧹 worktrees removidos: <qtd>
-🧪 worktrees mantidos (debug): <paths>
+✅ tasks: N/N · ❌ falhas: F · 🌊 ondas: M
+Integração: <git-root> → orchestrator/<spec-slug>
 📋 tracking: <spec_dir>/_tasks.md
 ```
 
 ## Guardrails
 
-- Nunca iniciar task com dependência não `done`.
-- Nunca avançar de onda sem reconciliar workers + integração + tracking.
-- Nunca usar worktree de um repo para task de outro `repo_key`.
-- Nunca declarar sucesso sem cherry-pick (ou merge) bem-sucedido no repo da task.
+- Nunca encerrar com `pending` > 0.
+- Nunca marcar `completed` em `_tasks.md` antes do cherry-pick.
+- Elegibilidade de onda via `integrated_tasks`, não suposições.
+- Workers usam **execute-orchestrated-task** — nunca `execute-task`.
+- Workers concluem `task_NN.md` por completo; orquestrador valida antes de integrar.
+- STOP CHECK antes de mensagens de conclusão.
+- Sem PRD/TechSpec inteiros no worker — use `context_task_XX.md`.
 
-## Modos degradados (somente se o usuário confirmar)
+## Modos degradados (confirmação explícita)
 
-| Modo | Quando | Risco |
-|------|--------|-------|
-| Sem worktree | Usuário aceita explicitamente | Conflitos em edição paralela no mesmo repo |
-| Serial por repo | Um worker por vez em `api/`, depois `admin/` | Mais lento; ignora paralelo cross-repo |
-
-O padrão recomendado para 1Trainer é **multi-repo + worktree por task**.
+| Modo | Risco |
+|------|-------|
+| Sem worktree | Conflitos em edição paralela |
+| Serial total | Mais lento |
+| `max_parallel=1` | Mais seguro |
 
 ## Idioma
 
-Todos os outputs, relatórios e mensagens em **Português do Brasil (pt-BR)**.
+pt-BR.
