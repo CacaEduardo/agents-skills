@@ -1,85 +1,68 @@
-# <Feature> — agent playbook
+# Plan: <Feature Name>
 
-**Purpose:** <Descreva o que este plano realiza e por quê — 1 a 2 parágrafos.>
-
-**Last updated:** YYYY-MM-DD
-**Current phase:** Phase 0
-**Status:** in-progress
-
----
-
-## Invariants (não pular)
-
-1. <Restrição crítica que nunca pode ser violada>
+**Status:** [Planning | In-Progress | Paused | Done]
+**Current Phase:** Phase 0 — <Nome>
+**Last Updated:** YYYY-MM-DD
+**Resume Point:** Comece pela **Task 01** (Contexto: <1 linha>)
 
 ---
 
-## Repository map (para agentes)
-
-| Área | Caminho | Observações |
-|------|---------|-------------|
-| <área> | `<path>` | <nota> |
+## 🛡️ Invariants
+*Regras de ouro que não podem ser quebradas durante a implementação.*
+1. <Restrição crítica>
 
 ---
 
-## Phase outline
-
-| Fase | Objetivo | Critério de conclusão |
-|------|----------|-----------------------|
-| **0 — <Nome>** | <objetivo> | <critério> |
-| **1 — <Nome>** | <objetivo> | <critério> |
+## 🗺️ Repository Map & Discovery
+| Área | Caminho | Comando de Análise / Observação |
+| :--- | :--- | :--- |
+| <área> | `<path>` | `grep...` ou nota técnica |
 
 ---
 
-## Discovery commands
-
-<Comandos para mapear o codebase antes de agir.>
-
-```bash
-# exemplo
-grep -r "<pattern>" src/
-```
+## 🚀 Phase Outline
+| Fase | Objetivo | Critério de Conclusão (Definition of Done) |
+| :--- | :--- | :--- |
+| **0 — <Nome>** | <objetivo> | <critério observável> |
+| **1 — <Nome>** | <objetivo> | <critério observável> |
 
 ---
 
-## Iteration template (copiar no Progress log)
-
-```markdown
-### Iteração N — <título>
-- Branch: `<branch>` (base: `<parent>`)
-- Escopo: <uma ou duas frases>
-- Arquivos alterados: …
-- Verificação: …
-- Follow-ups: …
-```
+## 📋 Master Task List
+| # | Task | Status | Cx | Deps | Validação (Como testar?) |
+| :-- | :--- | :---: | :---: | :---: | :--- |
+| 01 | <Título da Task> | [ ] | L | — | <Comando ou ação de teste> |
+| 02 | <Título da Task> | [ ] | M | 01 | <Comando ou ação de teste> |
 
 ---
 
-## Progress log
+## 📓 Progress Log
+*(Adicionar uma entrada a cada iteração ou branch concluído. Nunca remover as anteriores.)*
 
-| # | Branch | Merged? | Resumo |
-|---|--------|---------|--------|
-| 0 | — | — | Plano criado |
-
-*(Adicionar uma linha a cada iteração concluída.)*
-
----
-
-## Deferred / blocked
-
-*(Itens que parecem executáveis mas estão bloqueados por lógica compartilhada, dono incerto ou risco.)*
-
-| Item | Motivo | Quando desbloquear |
-|------|--------|--------------------|
+### Iteração 0 — Setup
+- **Branch:** `—`
+- **Resumo:** Plano de implementação criado e validado.
+- **Arquivos:** `.plans/<feature>.md`
 
 ---
 
-## Checklist — Phase 0
-
-- [ ] <step>
+## ⚠️ Deferred / Blocked
+| Item | Motivo | Bloqueado por |
+| :--- | :--- | :--- |
+| — | — | — |
 
 ---
 
-## Notes for future agents
+## ✅ Checklists por Fase
 
-- <Nota importante sobre o projeto>
+### Fase 0 — <Nome>
+- [ ] <step detalhado 1>
+- [ ] <step detalhado 2>
+
+### Fase 1 — <Nome>
+- [ ] <step detalhado 3>
+
+---
+
+## 📝 Notes for Future Agents
+- <Nota importante sobre o contexto, decisões técnicas ou "pegadinhas" do código>
