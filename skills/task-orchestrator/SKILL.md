@@ -151,6 +151,10 @@ Workspace: <WORKSPACE_ROOT>
 |----------|---------------------|-----------|
 | <path>   | orchestrator/<spec-slug> | <git-root>/.worktrees/<spec-slug>/task_NN |
 
+| Git root | Branch atual detectada | Base branch selecionada |
+|----------|------------------------|-------------------------|
+| <path>   | <branch-atual>         | <base_branch>           |
+
 Concorrência: 4 · Integração: cherry-pick · Worker skill: execute-orchestrated-task
 
 | Onda | Tasks | Git roots | Aguarda |
@@ -161,7 +165,14 @@ Total: N tasks · M ondas
 Já integradas: <lista>
 ```
 
-Informe branch atual por `git_root`. Confirmação **uma única vez** antes da Fase 3.
+Antes da Fase 3, a confirmação inicial é **obrigatória**:
+
+1. Exibir o roteiro completo (incluindo ondas, estratégia de disparo e `base_branch` por `git_root`).
+2. Pedir confirmação única: `Posso iniciar a execução com este plano? (sim/não)`.
+3. Se `sim`, seguir e executar todas as ondas sem novas confirmações.
+4. Se `não`, parar sem criar worktrees e sem alterar branches.
+
+Regra: não iniciar Fase 3 sem essa confirmação explícita do usuário.
 
 ## Loop principal (Fases 4 → 5 → 6)
 
@@ -194,7 +205,8 @@ FINAL_REPORT
 1. Ler `<spec_dir>/.orchestrator_checkpoint`, depois `_tasks.md`.
 2. Reconstruir `integrated_tasks`.
 3. `git checkout orchestrator/<spec-slug>` em cada `git_root` ativo.
-4. Entrar no loop sem novo roteiro completo.
+4. Exibir plano resumido remanescente (ondas pendentes + estratégia de disparo + `base_branch` atual por `git_root`) e pedir confirmação única (`sim/não`).
+5. Se `sim`, entrar no loop sem novas confirmações por onda; se `não`, encerrar sem executar.
 
 ## Fase 3 — Preparação Git
 
