@@ -24,6 +24,7 @@ npx @carlos-eduardo/agents-skills
 - **task-orchestrator** - Orquestra múltiplas tasks com dependências
 - **review-round** - Executa rodadas de review estruturadas
 - **fix-reviews** - Aplica correções de reviews
+- **review-pr** - Revisa PRs do GitHub (diretrizes, over-engineering, duplicação, risco de quebra), aprova/mergeia ou pede mudanças com plano de correção
 - **qa-review** - Realiza reviews de QA
 - **final-verify** - Verifica mudanças antes de commits
 - **setup-claude-md** - Configura arquivo CLAUDE.md do projeto
