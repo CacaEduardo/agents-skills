@@ -57,5 +57,5 @@ AAAA-MM-DD
 
 ## Referências
 
-- Plano: `.plans/<plan-slug>.md`
+- Plano: `.plans/<plan-slug>/README.md`
 - [Outros ADRs, links externos, arquivos-chave]

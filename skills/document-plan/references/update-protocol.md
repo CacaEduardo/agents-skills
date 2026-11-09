@@ -1,6 +1,6 @@
 # Protocolo de Atualização (`--update`)
 
-Regras para atualizar `.plans/<plan-slug>.md` sem inventar progresso.
+Regras para atualizar `.plans/<plan-slug>/README.md` sem inventar progresso.
 
 ## Regra de ouro
 

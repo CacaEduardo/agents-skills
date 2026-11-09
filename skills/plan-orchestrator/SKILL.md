@@ -1,6 +1,6 @@
 ---
 name: plan-orchestrator
-description: Orquestra as fases pendentes de um plano do document-plan (.plans/<plan-slug>.md) em ondas de dependência, com worktree por fase, workers isolados (context_phase_NN.md) e integração centralizada. Executa todas as ondas até zerar fases pendentes no plano. Genérico para qualquer layout Git (monorepo ou multi-repo). Workers usam execute-orchestrated-plan-phase. Use para executar um plano inteiro em paralelo. Não use para uma única fase — use execute-phase-plan.
+description: Orquestra as fases pendentes de um plano do document-plan (.plans/<plan-slug>/README.md) em ondas de dependência, com worktree por fase, workers isolados (context_phase_NN.md) e integração centralizada. Executa todas as ondas até zerar fases pendentes no plano. Genérico para qualquer layout Git (monorepo ou multi-repo). Workers usam execute-orchestrated-plan-phase. Use para executar um plano inteiro em paralelo. Não use para uma única fase — use execute-phase-plan.
 argument-hint: "<caminho-do-plano> [--max-parallel N]"
 ---
 
@@ -14,11 +14,14 @@ Executa automaticamente todas as fases pendentes de um plano do `document-plan` 
 ## Uso
 
 ```bash
-/plan-orchestrator .plans/<plan-slug>.md
-/plan-orchestrator .plans/<plan-slug>.md --max-parallel 2
+/plan-orchestrator .plans/<plan-slug>/README.md
+/plan-orchestrator .plans/<plan-slug>              # a pasta também serve
+/plan-orchestrator .plans/<plan-slug>/README.md --max-parallel 2
 ```
 
-O argumento é o caminho do plano relativo à raiz do workspace.
+O argumento é o caminho do plano relativo à raiz do workspace. Aceite tanto o arquivo quanto a pasta: se apontar para um diretório, o plano é `<dir>/README.md`. Caminho absoluto também vale.
+
+Se o argumento for `.plans/<plan-slug>.md` (convenção antiga, arquivo irmão) e esse arquivo não existir, procure `.plans/<plan-slug>/README.md` antes de reportar erro.
 
 ## Divisão de responsabilidades
 
@@ -26,7 +29,7 @@ O argumento é o caminho do plano relativo à raiz do workspace.
 |-------------|----------|-------|
 | **Worker** | `report_phase_NN.md` | Checklist da fase, evidência de validação, ADRs propostos — via `execute-orchestrated-plan-phase` |
 | **Worker** | Código | Commits na branch `phase/<plan-slug>/phase_NN` no worktree |
-| **Orquestrador** | `.plans/<plan-slug>.md` | **Único dono** — status, Progress Log e Resume Point somente após cherry-pick |
+| **Orquestrador** | `.plans/<plan-slug>/README.md` | **Único dono** — status, Progress Log e Resume Point somente após cherry-pick |
 | **Orquestrador** | `.plans/<plan-slug>/adrs/` | **Único dono** — materializa os ADRs propostos pelos workers, numerando sem colisão |
 | **Orquestrador** | Git | Worktrees, ondas, integração em `orchestrator/<plan-slug>`, cleanup |
 
@@ -49,7 +52,7 @@ Workers **nunca** escrevem o plano nem os ADRs. Numeração de ADR em paralelo c
 
 ### Após cada onda — checklist obrigatório
 
-1. Reler `.plans/<plan-slug>.md` do disco.
+1. Reler `.plans/<plan-slug>/README.md` do disco.
 2. Contar fases: `⏳` pendentes, `✅` concluídas, `⚠️` falhas/bloqueadas.
 3. Se pendentes > 0 e há elegíveis → **Micro-relatório** e **Fase 4 imediata**.
 4. Se pendentes > 0 sem elegíveis → corrigir o tracking ou marcar `⚠️`.
@@ -80,7 +83,7 @@ Persiste entre fases:
 
 - Commits nas branches de fase
 - `report_phase_NN.md` (worker)
-- `.plans/<plan-slug>.md` e `adrs/` (orquestrador)
+- `.plans/<plan-slug>/README.md` e `adrs/` (orquestrador)
 - Conjunto `integrated_phases`
 - JSON de retorno
 
@@ -90,7 +93,7 @@ Após o JSON: deletar `context_phase_NN.md`; nunca reutilizar sessão.
 
 ## Inputs obrigatórios
 
-- `plan_file` — `.plans/<plan-slug>.md`, gerado pelo `document-plan`, com **Phase Outline** contendo as colunas `Depende de` e `Git root`.
+- `plan_file` — `.plans/<plan-slug>/README.md`, gerado pelo `document-plan`, com **Phase Outline** contendo as colunas `Depende de` e `Git root`.
 
 Se o plano não tiver essas colunas (formato antigo), **pare** e peça ao usuário para rodar `/document-plan <plan-slug> --update` antes, ou derive as dependências e **confirme-as explicitamente** na Fase 2 antes de executar.
 
@@ -100,7 +103,7 @@ Se o plano não tiver essas colunas (formato antigo), **pare** e peça ao usuár
 
 ### 1.1 Plano e dependências
 
-1. Ler `.plans/<plan-slug>.md`: Propósito, **Invariants**, Repository Map, **Phase Outline**, Master Task List, Progress Log, Deferred / Blocked, Notes for Future Agents.
+1. Ler `.plans/<plan-slug>/README.md`: Propósito, **Invariants**, Repository Map, **Phase Outline**, Master Task List, Progress Log, Deferred / Blocked, Notes for Future Agents.
 2. Ler todos os ADRs em `.plans/<plan-slug>/adrs/`. ADR `Substituído por` / `Descontinuado` não vale como decisão vigente.
 3. Do Phase Outline, montar: `phase_id → objetivo`, `phase_id → depends_on[]`, `phase_id → git_root`, `phase_id → DoD`, `phase_id → status`.
 4. Da Master Task List, agrupar as tasks por fase (coluna `Fase`) — cada fase carrega suas tasks, validações e checklist.
@@ -109,7 +112,7 @@ Valide: ausência de ciclos, ids no formato `phase_01` (não `phase_1`), toda fa
 
 Defina:
 
-- `plan_slug` = nome do arquivo do plano sem extensão
+- `plan_slug` = nome da **pasta** do plano (o `<plan-slug>` em `.plans/<plan-slug>/`) — não o nome do arquivo, que é sempre `README.md`
 - `WORKSPACE_ROOT` = raiz do workspace (absoluto)
 - `integrated_phases` = fases `✅` no plano **e** confirmadas por integração anterior (checkpoint)
 
@@ -145,6 +148,32 @@ Para cada fase pendente:
 4. Fase cruzando roots distintos → **quebrar em subfases por root** ou serializar; se nem isso resolver, marcar `⚠️` e reportar.
 5. Ambíguo → perguntar na Fase 2.
 
+### 1.4 Sessões concorrentes (pré-voo obrigatório)
+
+Antes da Fase 2, verifique se outro plano está rodando nos mesmos `git_root`:
+
+```bash
+for cp in "$WORKSPACE_ROOT"/.plans/*/.orchestrator_checkpoint; do
+  [ -e "$cp" ] || continue
+  grep -q '"in_progress_wave"' "$cp" && echo "SESSÃO ATIVA: $cp" && cat "$cp"
+done
+```
+
+Um checkpoint com `in_progress_wave`/`in_progress_phases` indica uma sessão viva. Cruze os `git_roots` dele com os seus.
+
+**Interseção vazia** (ex.: o outro plano só toca `club`, o seu só toca `app`) → siga normalmente. O worktree de integração já garante que os dois não disputam branch.
+
+**Interseção não vazia** → o worktree de integração resolve o conflito de *branch*, mas **não** os outros dois pontos de compartilhamento. Reporte ao usuário e peça decisão explícita antes de continuar:
+
+| Compartilhado | Ainda quebra? | Por quê |
+|---|---|---|
+| Working tree principal / branch | **Não** | Cada plano tem seu `_integration` |
+| Banco de dados de teste | **Sim** | Os worktrees leem o mesmo `.env`/`.env.test` do repo → mesmos bancos, mesmas migrations |
+| Client/artefato gerado dentro de `node_modules` compartilhado | **Sim** | Symlink de dependências resolve para o realpath do repo principal; dois planos com schemas/configs diferentes se sobrescrevem |
+| Núcleos de CPU | Degrada | Duas suítes de teste dimensionadas para a máquina inteira |
+
+E o que nenhuma correção de Git resolve: se os dois planos editam os mesmos arquivos, cada um fica verde **em isolamento** e ninguém testa a combinação. Nesse caso, recomende serializar.
+
 ---
 
 ## Fase 2 — Planejamento e confirmação
@@ -156,13 +185,13 @@ Modo: monorepo | multi-repo
 Plano: <plan_file>
 Workspace: <WORKSPACE_ROOT>
 
-| Git root | Branch orquestração | Worktrees |
-|----------|---------------------|-----------|
-| <path>   | orchestrator/<plan-slug> | <git-root>/.worktrees/<plan-slug>/phase_NN |
+| Git root | Branch orquestração | Worktree de integração | Worktrees de fase |
+|----------|---------------------|------------------------|-------------------|
+| <path>   | orchestrator/<plan-slug> | <git-root>/.worktrees/<plan-slug>/_integration | <git-root>/.worktrees/<plan-slug>/phase_NN |
 
-| Git root | Branch atual detectada | Base branch selecionada |
-|----------|------------------------|-------------------------|
-| <path>   | <branch-atual>         | <base_branch>           |
+| Git root | Branch atual detectada | Base branch selecionada | Working tree principal |
+|----------|------------------------|-------------------------|------------------------|
+| <path>   | <branch-atual>         | <base_branch>           | intocado (permanece em `<branch-atual>`) |
 
 Concorrência: 3 · Integração: cherry-pick · Worker skill: execute-orchestrated-plan-phase
 
@@ -218,7 +247,7 @@ FINAL_REPORT
 
 1. Ler `.plans/<plan-slug>/.orchestrator_checkpoint`, depois o plano.
 2. Reconstruir `integrated_phases`.
-3. `git checkout orchestrator/<plan-slug>` em cada `git_root` ativo.
+3. Reconectar o worktree de integração de cada `git_root` ativo (ver Fase 3) — **sem tocar no working tree principal**. Se `integration_worktrees` do checkpoint apontar para um diretório que não existe mais, recrie-o a partir da branch `orchestrator/<plan-slug>`, que preserva o que já foi integrado.
 4. Exibir o roteiro remanescente (ondas pendentes + `base_branch` atual por `git_root`) e pedir confirmação única (`sim/não`).
 5. Se `sim`, entrar no loop sem novas confirmações por onda; se `não`, encerrar sem executar.
 
@@ -226,18 +255,38 @@ FINAL_REPORT
 
 ## Fase 3 — Preparação Git
 
+> **Nunca dê `checkout` no working tree principal do `git_root`.** Ele pertence ao usuário — e a outra sessão do orquestrador que talvez esteja rodando no mesmo repo. Toda a integração acontece em um **worktree de integração dedicado**, um por plano.
+
 Por `git_root` usado:
 
 ```bash
-git -C "$GIT_ROOT" checkout -B "orchestrator/<plan-slug>" "$base_branch"
+INTEG="$GIT_ROOT/.worktrees/<plan-slug>/_integration"
 mkdir -p "$GIT_ROOT/.worktrees/<plan-slug>"
+
+if git -C "$GIT_ROOT" show-ref --verify --quiet "refs/heads/orchestrator/<plan-slug>"; then
+  # Retomada: a branch já existe, só reconectar o worktree
+  [ -d "$INTEG" ] || git -C "$GIT_ROOT" worktree add "$INTEG" "orchestrator/<plan-slug>"
+else
+  git -C "$GIT_ROOT" worktree add "$INTEG" -b "orchestrator/<plan-slug>" "$base_branch"
+fi
+```
+
+O working tree principal fica onde estava, na branch que o usuário deixou. Confirme isso antes de seguir:
+
+```bash
+git -C "$GIT_ROOT" rev-parse --abbrev-ref HEAD   # deve ser a branch original do usuário
 ```
 
 Convenções:
 
 - Orquestração: `orchestrator/<plan-slug>`
 - Fase: `phase/<plan-slug>/phase_NN`
-- Worktree: `$GIT_ROOT/.worktrees/<plan-slug>/phase_NN`
+- Worktree de fase: `$GIT_ROOT/.worktrees/<plan-slug>/phase_NN`
+- **Worktree de integração:** `$GIT_ROOT/.worktrees/<plan-slug>/_integration` — onde o orquestrador faz todo cherry-pick
+
+O prefixo `_` distingue o worktree de integração dos de fase: onde a skill varrer `.worktrees/<plan-slug>/*`, filtre por `phase_*` para não tratar `_integration` como fase.
+
+Ligue os diretórios de dependência no worktree de integração também (mesma receita da seção seguinte) — sem eles ninguém consegue rodar nada contra o resultado integrado.
 
 ### Ligar os diretórios de dependência
 
@@ -376,10 +425,14 @@ Por worker com `status` `done` ou `partial`:
 
 1. **Validar `report_phase_NN.md`**: checklist da fase preenchido + evidência de validação por task. Sem isso → `failed`, não integrar.
 2. **Conferir contra o DoD** da fase no Phase Outline. DoD não atendido → integra apenas se `partial` e o usuário aceitar; caso contrário `⚠️`.
-3. `git -C "$GIT_ROOT" checkout orchestrator/<plan-slug>`
-4. Cherry-pick:
+3. Cherry-pick **no worktree de integração** (`-C` aponta para ele, nunca para `$GIT_ROOT`):
    ```bash
-   git -C "$GIT_ROOT" cherry-pick <SHA1> <SHA2> ...
+   INTEG="$GIT_ROOT/.worktrees/<plan-slug>/_integration"
+   git -C "$INTEG" cherry-pick <SHA1> <SHA2> ...
+   ```
+   O `_integration` já está na branch `orchestrator/<plan-slug>` desde a Fase 3 — não há `checkout` a fazer aqui. Se por algum motivo ele não estiver, **pare e investigue**: alguém mexeu no worktree, e integrar às cegas escreveria commits na branch errada.
+   ```bash
+   git -C "$INTEG" rev-parse --abbrev-ref HEAD   # deve ser orchestrator/<plan-slug>
    ```
 5. Se OK:
    - `integrated_phases` += `phase_id` (somente se `status: done`)
@@ -393,7 +446,7 @@ Por worker com `status` `done` ou `partial`:
    - **Materializar `proposed_adrs`:** ler `.plans/<plan-slug>/adrs/` para o próximo número livre, gravar `adr-NNN.md` a partir do `body_file` no formato do template, e acrescentar a linha na tabela Architecture Decision Records. Numere **em série**, uma fase por vez, para evitar colisão.
    - Deletar `context_phase_NN.md`, `report_phase_NN.md` e os `body_file` já materializados
    - Cleanup do worktree
-6. Conflito de cherry-pick → marcar `⚠️` e pausar aquele `git_root`; as outras fases da onda seguem.
+6. Conflito de cherry-pick → `git -C "$INTEG" cherry-pick --abort`, marcar `⚠️` e pausar aquele `git_root`; as outras fases da onda seguem. O `--abort` é obrigatório: um `_integration` deixado no meio de um cherry-pick faz a próxima onda falhar de um jeito confuso.
 
 **Nunca** marque uma fase como `✅` antes do cherry-pick bem-sucedido.
 
@@ -407,7 +460,7 @@ Por worker com `status` `done` ou `partial`:
 
 ```json
 {
-  "plan_file": ".plans/<plan-slug>.md",
+  "plan_file": ".plans/<plan-slug>/README.md",
   "plan_slug": "<plan-slug>",
   "last_wave": 2,
   "integrated_phases": ["phase_01", "phase_03"],
@@ -415,6 +468,7 @@ Por worker com `status` `done` ou `partial`:
   "blocked": [],
   "next_adr_number": 4,
   "git_roots": ["<absoluto>"],
+  "integration_worktrees": { "<git-root-absoluto>": "<git-root>/.worktrees/<plan-slug>/_integration" },
   "dep_dirs": ["<nome-do-diretório-de-dependências>"]
 }
 ```
@@ -447,7 +501,9 @@ Por worker com `status` `done` ou `partial`:
 | `worktree_creation_failed` | Retentar / abortar |
 | `worker_no_commit` | Falha; não integrar |
 | `report_incomplete` | Não integrar; marcar `⚠️` |
-| `cherry_pick_conflict` | Pausar o repo; marcar `⚠️` |
+| `cherry_pick_conflict` | `cherry-pick --abort` no `_integration`; pausar o repo; marcar `⚠️` |
+| `_integration` fora de `orchestrator/<plan-slug>` | Parar aquele `git_root`; alguém mexeu no worktree — não integrar às cegas |
+| Outra sessão do orquestrador ativa no mesmo `git_root` | Ver "Sessões concorrentes" |
 | Worker viola Invariant | Não integrar; registrar em Deferred / Blocked |
 | Colisão de numeração de ADR | Impossível por construção — só o orquestrador numera |
 
@@ -464,6 +520,21 @@ git -C "$GIT_ROOT" branch -D "phase/<plan-slug>/phase_NN"
 
 Fases `⚠️`: manter o worktree para debug.
 
+### Worktree de integração — só no fim
+
+O `_integration` sobrevive a todas as ondas: é onde os commits integrados vivem. Remova-o **apenas** depois do Relatório Final, e **nunca** apague a branch `orchestrator/<plan-slug>` — é o entregável do plano, de onde sai o PR.
+
+```bash
+INTEG="$GIT_ROOT/.worktrees/<plan-slug>/_integration"
+find "$INTEG" -type l -exec rm {} \;
+git -C "$GIT_ROOT" worktree remove "$INTEG"
+# a branch orchestrator/<plan-slug> permanece
+```
+
+Se qualquer fase ficou `⚠️`, mantenha também o `_integration` — o usuário vai querer inspecionar o estado integrado parcial.
+
+Para conferir o resultado, o usuário faz `git checkout orchestrator/<plan-slug>` no próprio working tree **quando quiser** — decisão dele, nunca do orquestrador.
+
 ## Relatório final
 
 ```md
@@ -472,7 +543,10 @@ Fases `⚠️`: manter o worktree para debug.
 ✅ fases: N/N · ❌ bloqueadas: F · 🌊 ondas: M
 📋 tasks: T/T · 🧭 ADRs criados: A
 Integração: <git-root> → orchestrator/<plan-slug>
-📄 plano: .plans/<plan-slug>.md
+📄 plano: .plans/<plan-slug>/README.md
+
+Working tree principal: intocado, ainda em `<branch-original>`
+Para revisar o resultado: `git -C <git-root> checkout orchestrator/<plan-slug>`
 
 Validação manual pendente:
 - <item> (fase N)
@@ -481,6 +555,7 @@ Validação manual pendente:
 ## Guardrails
 
 - Nunca encerrar com fases pendentes.
+- **Nunca dar `checkout` no working tree principal de um `git_root`.** Todo cherry-pick vai no `_integration`. O working tree do usuário fica na branch dele do começo ao fim.
 - Nunca marcar `✅` no plano antes do cherry-pick.
 - Elegibilidade de onda via `integrated_phases`, não suposição.
 - Workers usam **execute-orchestrated-plan-phase** — nunca `execute-phase-plan`.

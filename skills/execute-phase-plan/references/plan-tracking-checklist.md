@@ -1,6 +1,6 @@
 # Checklist de Tracking — Fase de Plano
 
-Aplique ao atualizar `.plans/<plan-slug>.md` após executar uma fase. O plano é a **única fonte de verdade** do progresso; os ADRs, das decisões.
+Aplique ao atualizar `.plans/<plan-slug>/README.md` após executar uma fase. O plano é a **única fonte de verdade** do progresso; os ADRs, das decisões.
 
 ## Ordem obrigatória
 

@@ -107,7 +107,7 @@ Siga `references/question-protocol.md`. Regras não negociáveis:
   - Leia `references/adr-template.md`.
   - Numere olhando os arquivos existentes em `.plans/<plan-slug>/adrs/` (3 dígitos com zeros à esquerda: `adr-001.md`).
   - Preencha: abordagem escolhida em **Decisão**; abordagens rejeitadas em **Alternativas Consideradas** com prós/contras e "Por que rejeitada"; trade-offs em **Consequências**. Status `Aceito`, Data = hoje.
-  - Em **Referências**, aponte para `.plans/<plan-slug>.md`.
+  - Em **Referências**, aponte para `.plans/<plan-slug>/README.md`.
 - **Crie ADRs adicionais** para cada decisão técnica significativa fechada durante a rodada de perguntas: escolha de tecnologia/biblioteca, mudança de contrato, estratégia de migração de dados, decisão de compatibilidade retroativa, corte de escopo relevante. Uma decisão é significativa se um agente futuro poderia razoavelmente questioná-la.
 - **Mínimo obrigatório: 1 ADR.** Se você chegou ao Passo 5 sem nenhum ADR, volte e registre ao menos a abordagem principal.
 
