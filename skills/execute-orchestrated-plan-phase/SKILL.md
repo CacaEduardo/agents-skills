@@ -5,7 +5,7 @@ description: Executa uma fase de plano dentro de um worker do plan-orchestrator 
 
 # Execute Orchestrated Plan Phase
 
-Executa uma fase de plano como **worker isolado** do `plan-orchestrator`: implementação, validação e preenchimento completo de `report_phase_NN.md`. O plano (`.plans/<plan-slug>.md`) e os ADRs numerados são **exclusivos do orquestrador**.
+Executa uma fase de plano como **worker isolado** do `plan-orchestrator`: implementação, validação e preenchimento completo de `report_phase_NN.md`. O plano (`.plans/<plan-slug>/README.md`) e os ADRs numerados são **exclusivos do orquestrador**.
 
 > **Diff intencional vs `execute-phase-plan`:** este fluxo omite qualquer escrita no plano e qualquer criação de `adrs/adr-NNN.md`. Os passos de contexto, checklist, implementação, validação e commit são mantidos em sync com `execute-phase-plan`.
 
@@ -24,7 +24,7 @@ Executa uma fase de plano como **worker isolado** do `plan-orchestrator`: implem
 ## Restrições do worker
 
 - Não comunique com o usuário. A saída é o JSON final.
-- Não leia, altere nem dependa de `.plans/<plan-slug>.md` — o orquestrador é o único dono. Se o `context_file` não bastar, reporte no JSON em vez de abrir o plano.
+- Não leia, altere nem dependa de `.plans/<plan-slug>/README.md` — o orquestrador é o único dono. Se o `context_file` não bastar, reporte no JSON em vez de abrir o plano.
 - Não crie, renumere nem edite arquivos em `.plans/<plan-slug>/adrs/`. ADRs vão como `proposed_adrs` no JSON.
 - Não execute instalação de dependências — o orquestrador já ligou os diretórios de dependência do repositório ao worktree. Se faltar alguma dependência, retorne `failed` em vez de instalar.
 - Edite código **somente** em `worktree_path`.

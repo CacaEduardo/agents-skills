@@ -72,7 +72,7 @@
 ### Iteração 0 — Setup
 - **Branch:** `—`
 - **Resumo:** Plano criado. Decisões fechadas com o usuário: <lista curta>.
-- **Arquivos:** `.plans/<plan-slug>.md`, `.plans/<plan-slug>/adrs/adr-001.md`
+- **Arquivos:** `.plans/<plan-slug>/README.md`, `.plans/<plan-slug>/adrs/adr-001.md`
 - **Validação:** —
 
 ---

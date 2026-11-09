@@ -35,7 +35,7 @@ Aplique ao concluir uma fase invocada pelo **plan-orchestrator**. Atualiza **som
 
 ## Regras invioláveis
 
-- **Não leia, não altere e não dependa de `.plans/<plan-slug>.md`.** O orquestrador atualiza o plano após o cherry-pick.
+- **Não leia, não altere e não dependa de `.plans/<plan-slug>/README.md`.** O orquestrador atualiza o plano após o cherry-pick.
 - **Não crie nem numere ADRs** em `adrs/`. Numeração em paralelo colide.
 - **Sem evidência, sem `[x]`.**
 - **Não invente resultado de validação manual.**

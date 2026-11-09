@@ -1,6 +1,6 @@
 ---
 name: execute-phase-plan
-description: Executa uma fase inteira de um plano gerado pelo document-plan (.plans/<plan-slug>.md) — implementa todas as tasks da fase, valida com os comandos declarados e atualiza o plano (status, checklists, Progress Log, Resume Point) ao final. Use quando houver um plano faseado e o pedido for executar uma fase. Não use para tasks de PRD em .specs/ (use execute-task) nem dentro de um worker do plan-orchestrator (use execute-orchestrated-plan-phase).
+description: Executa uma fase inteira de um plano gerado pelo document-plan (.plans/<plan-slug>/README.md) — implementa todas as tasks da fase, valida com os comandos declarados e atualiza o plano (status, checklists, Progress Log, Resume Point) ao final. Use quando houver um plano faseado e o pedido for executar uma fase. Não use para tasks de PRD em .specs/ (use execute-task) nem dentro de um worker do plan-orchestrator (use execute-orchestrated-plan-phase).
 argument-hint: "<caminho-do-plano> <fase> [--no-commit]"
 ---
 
@@ -13,14 +13,14 @@ Unidade de trabalho = **fase**, não task. Todas as tasks da fase são implement
 ## Uso
 
 ```bash
-/execute-phase-plan .plans/<plan-slug>.md 2
-/execute-phase-plan .plans/<plan-slug>.md 2 --no-commit
-/execute-phase-plan .plans/<plan-slug>.md          # usa a fase do Resume Point
+/execute-phase-plan .plans/<plan-slug>/README.md 2
+/execute-phase-plan .plans/<plan-slug>/README.md 2 --no-commit
+/execute-phase-plan .plans/<plan-slug>/README.md          # usa a fase do Resume Point
 ```
 
 ## Entradas Necessárias
 
-- `plan_file` — caminho de `.plans/<plan-slug>.md`.
+- `plan_file` — caminho de `.plans/<plan-slug>/README.md`.
 - `phase` — número ou nome da fase. Se omitido, derive do `Current Phase` / `Resume Point` do header.
 - `auto_commit` — padrão **habilitado**; `--no-commit` desabilita.
 - Derivados do plano (não peça ao usuário se estiverem no documento): `git_root` da fase, ADRs em `.plans/<plan-slug>/adrs/`.
